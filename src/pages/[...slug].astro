@@ -1,0 +1,63 @@
+---
+import Base from '../layouts/Base.astro';
+import meta from '../content/meta.json';
+
+// Eagerly load all transformed pages as raw HTML strings.
+// Keys look like "../content-pages/<slug>.html"; values are the raw
+// string, or a module object whose .default is the string.
+const pagesRaw = import.meta.glob('../content-pages/**/*.html', {
+  eager: true,
+  query: '?raw'
+});
+
+function asHtml(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value.default === 'string') return value.default;
+  if (typeof value.default === 'object' && value.default) return value.default.default;
+  return String(value);
+}
+
+function pageHtml(slug) {
+  const target = '../content-pages/' + slug + '.html';
+  for (const [key, value] of Object.entries(pagesRaw)) {
+    if (key.replace(/\?.*$/, '') !== target) continue;
+    return asHtml(value);
+  }
+  return '';
+}
+
+// meta.json is an object keyed by "/slug/"; entry:
+// { url, title, desc, section, toc:[{text,anchor}], media }
+export function getStaticPaths() {
+  return Object.values(meta).map((entry) => ({
+    params: { slug: entry.url.replace(/^\//, '').replace(/\/$/, '') },
+    props: { entry }
+  }));
+}
+
+const { entry } = Astro.props;
+const article = pageHtml(entry.url.replace(/^\//, '').replace(/\/$/, ''));
+const toc = entry.toc || [];
+const showToc = toc.length >= 3;
+---
+
+<Base title={entry.title} description={entry.desc} active={entry.section.toLowerCase()}>
+  <article class="article-body">
+    {
+      showToc && (
+        <nav class="toc" aria-label="Inhaltsverzeichnis">
+          <strong>Inhaltsverzeichnis</strong>
+          <ul>
+            {toc.map((t) => (
+              <li>
+                <a href={'#' + t.anchor}>{t.text}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+    <div set:html={article} />
+  </article>
+</Base>

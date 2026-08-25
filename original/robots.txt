@@ -1,0 +1,55 @@
+User-agent: *
+Disallow: /de/search
+Disallow: /en/search
+Disallow: /fr/search
+Disallow: /es/search
+Disallow: /it/search
+Disallow: /ru/search
+Disallow: /de/imprint
+Disallow: /en/imprint
+Disallow: /fr/imprint
+Disallow: /es/imprint
+Disallow: /de/datenschutz
+Disallow: /en/privacy
+Disallow: /fr/privacy
+Disallow: /es/privacidad
+Disallow: /check/
+Disallow: /contao/
+Disallow: /system/
+Disallow: /templates/
+Disallow: /contao-check.php
+Disallow: /flash.php
+Disallow: /README.md
+Allow: /assets/images/
+Allow: /system/modules/lingolia/assets/
+Allow: /system/modules/lingolia_daily/assets/
+Allow: /system/modules/lingolia_example/assets/
+Allow: /system/modules/lingolia_exercise/assets/
+Allow: /system/modules/lingolia_conjugator/assets/
+
+User-agent: dotbot
+Crawl-delay: 10
+
+User-Agent: MJ12bot
+Crawl-Delay: 30
+
+User-agent: SeekportBot
+Crawl-delay: 30
+
+User-agent: FemtosearchBot
+Crawl-delay: 30
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: RSiteAuditor
+Disallow: /
+
+User-agent: peer39_crawler/1.0
+Disallow: /
+
+User-Agent: ImagesiftBot
+Disallow: /
+
+User-Agent: LinerBot
+Disallow: /

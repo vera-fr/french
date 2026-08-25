@@ -1,0 +1,81 @@
+---
+import Base from '../layouts/Base.astro';
+
+const site = 'https://francais.lingolia.com';
+const ext = (p) => site + p;
+---
+
+<Base>
+  <h1>Französisch lernen und üben</h1>
+  <p class="lead">
+    Grammatik, Wortschatz und Schreibstil – übersichtlich erklärt, mit Beispielsätzen und deutschen
+    Übersetzungen. Ohne Werbung, ohne Schnickschnack.
+  </p>
+
+  <form class="search-form" action="/suche/" method="get" role="search">
+    <label class="sr-only" for="home-q">Suchen</label>
+    <input id="home-q" type="search" name="q" autocomplete="off"
+           placeholder="z. B. „Relativpronomen“ oder „passé composé“ …" />
+    <button type="submit">Suchen</button>
+  </form>
+
+  <div class="cards">
+    <section class="card">
+      <h2><a href="/grammatik/">Grammatik</a></h2>
+      <p>Regeln und Systeme der französischen Sprache.</p>
+      <ul class="quick">
+        <li><a href="/grammatik/zeitformen/">Zeitformen</a></li>
+        <li><a href="/grammatik/verben/">Verben</a></li>
+        <li><a href="/grammatik/pronomen/">Pronomen</a></li>
+        <li><a href="/grammatik/adjektive/">Adjektive</a></li>
+        <li><a href="/grammatik/praepositionen/">Präpositionen</a></li>
+        <li><a href="/grammatik/satzbau/">Satzbau</a></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2><a href="/wortschatz/">Wortschatz</a></h2>
+      <p>Wörter, Redewendungen und Themenwortschatz.</p>
+      <ul class="quick">
+        <li><a href="/wortschatz/redewendungen/">Redewendungen</a></li>
+        <li><a href="/wortschatz/themen/">Themen</a></li>
+        <li><a href="/wortschatz/zahlen-datum-uhrzeit/">Zahlen &amp; Uhrzeit</a></li>
+        <li><a href="/wortschatz/laendernamen/">Ländernamen</a></li>
+        <li><a href="/wortschatz/leicht-zu-verwechselnde-woerter/">Leicht zu verwechseln</a></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2><a href="/schreibschule/">Schreibschule</a></h2>
+      <p>Texte verstehen und gut schreiben.</p>
+      <ul class="quick">
+        <li><a href="/schreibschule/bildbeschreibung/">Bildbeschreibung</a></li>
+        <li><a href="/schreibschule/erzaehlperspektive/">Erzählperspektive</a></li>
+        <li><a href="/schreibschule/stilebenen/">Stilebenen</a></li>
+        <li><a href="/schreibschule/stilmittel/">Stilmittel</a></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2><a href="/rechtschreibung/">Rechtschreibung</a></h2>
+      <p>Aussprache, Buchstabierung und Zeichensetzung.</p>
+      <ul class="quick">
+        <li><a href="/rechtschreibung/laute-und-schreibweise/">Laute &amp; Schreibweise</a></li>
+        <li><a href="/rechtschreibung/zeichensetzung/">Satzzeichen</a></li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Interaktiv auf der Originalseite</h2>
+    <p>
+      Konjugator und Hör-/Leseverstehen bleiben interaktiv bei Lingolia – hier verlinkt:
+    </p>
+    <ul class="quick">
+      <li><a href={ext('/de/grammatik/konjugator')} target="_blank" rel="noopener noreferrer">Konjugator</a></li>
+      <li><a href={ext('/de/hoerverstehen')} target="_blank" rel="noopener noreferrer">Hörverstehen</a></li>
+      <li><a href={ext('/de/leseverstehen')} target="_blank" rel="noopener noreferrer">Leseverstehen</a></li>
+      <li><a href={ext('/de/hilfe/glossar')} target="_blank" rel="noopener noreferrer">Glossar</a></li>
+    </ul>
+  </section>
+</Base>

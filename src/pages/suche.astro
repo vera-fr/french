@@ -1,0 +1,108 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Suche" description="Alle Grammatik-, Wortschatz-, Schreib- und Rechtschreibungstipps durchsuchen." active="suche">
+  <h1>Suche</h1>
+  <p class="lead">Über 190 Lernseiten durchsuchen – Grammatik, Wortschatz, Schreibschule, Rechtschreibung.</p>
+
+  <form class="search-form" id="search-form" role="search" action="/suche/" method="get">
+    <label class="sr-only" for="q">Suchbegriff</label>
+    <input id="q" name="q" type="search" autocomplete="off"
+           placeholder="z. B. „Subjonctif“, „Artikel“, „Uhrzeit“ …" />
+    <button type="submit">Suchen</button>
+  </form>
+
+  <ol id="results" class="search-results" aria-live="polite"></ol>
+  <p id="no-results" hidden>Keine Treffer. Versuche einen kürzeren oder allgemeineren Begriff, z. B. „passé composé“.</p>
+</Base>
+
+<script>
+  const idxUrl = import.meta.env.BASE_URL + 'search-index.json';
+  let index = null;
+  async function loadIndex() {
+    if (index) return index;
+    const res = await fetch(idxUrl);
+    index = await res.json();
+    return index;
+  }
+
+  function norm(s) {
+    return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  }
+
+  function escapeHtml(s) {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Build a snippet around the first match of the (normalized) query.
+  function snippet(text, qnorm) {
+    const tnorm = norm(text);
+    const i = tnorm.indexOf(qnorm);
+    if (i < 0) return escapeHtml(text.slice(0, 160));
+    const start = Math.max(0, i - 60);
+    const end = Math.min(text.length, i + qnorm.length + 120);
+    const before = start === 0 ? '' : '…' + text.slice(start, i);
+    const match = text.slice(i, i + qnorm.length);
+    const after = end === text.length ? '' : text.slice(i + qnorm.length, end) + '…';
+    return escapeHtml(before) + '<mark>' + escapeHtml(match) + '</mark>' + escapeHtml(after);
+  }
+
+  function rank(entry, qnorm) {
+    const title = norm(entry.title);
+    const section = norm(entry.section || '');
+    const text = norm(entry.text);
+    let score = 0;
+    if (title.includes(qnorm)) score += 100;
+    if (section.includes(qnorm)) score += 40;
+    if (text.includes(qnorm)) score += 10;
+    // Prefer earlier matches in the title.
+    const ti = title.indexOf(qnorm);
+    if (ti >= 0) score += Math.max(0, 20 - ti);
+    return score;
+  }
+
+  async function run() {
+    const q = document.getElementById('q').value.trim();
+    const results = document.getElementById('results');
+    const noResults = document.getElementById('no-results');
+    results.innerHTML = '';
+    if (q.length < 2) { noResults.hidden = true; return; }
+
+    const qnorm = norm(q);
+    const idx = await loadIndex();
+    const hits = idx
+      .map((entry) => ({ entry, score: rank(entry, qnorm) }))
+      .filter((h) => h.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 40);
+
+    noResults.hidden = hits.length > 0;
+    for (const { entry } of hits) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = entry.url;
+      a.textContent = entry.title + (entry.section ? ' (' + entry.section + ')' : '');
+      const p = document.createElement('p');
+      p.className = 'snip';
+      p.innerHTML = snippet(entry.text, qnorm);
+      li.append(a, p);
+      results.appendChild(li);
+    }
+  }
+
+  const form = document.getElementById('search-form');
+  form.addEventListener('submit', (e) => { e.preventDefault(); run(); });
+  const input = document.getElementById('q');
+  let t;
+  input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 200); });
+
+  // Prefill from ?q= so the home-page form deep-links.
+  const initial = new URLSearchParams(window.location.search).get('q');
+  if (initial) { input.value = initial; run(); }
+  input.focus();
+</script>
