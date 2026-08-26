@@ -354,6 +354,36 @@ async function transformPage({ slug, file }) {
   // any leftover icon font glyphs
   content.find('i.fal, i.far, i.fas, i[aria-hidden="true"]').remove();
 
+  // ---- audio players: drop the player block, the <audio>, its buttons,
+  // and the figure images that belong to the audio block (figures in
+  // text-only example blocks elsewhere are kept)
+  const audioScopes = [];
+  content.find('audio').each((_, el) => {
+    const $a = doc(el);
+    const scope = $a.closest('.ce_example').first();
+    if (scope.length) {
+      audioScopes.push(scope);
+    } else {
+      let cur = $a;
+      for (let k = 0; k < 3; k++) cur = cur.parent().length ? cur.parent() : cur;
+      audioScopes.push(cur);
+    }
+  });
+  for (const scope of audioScopes) scope.find('.example-image').remove();
+  content.find('.example-audio, audio').each((_, el) => {
+    const $x = doc(el);
+    for (const dir of ['prevAll', 'nextAll']) {
+      const figs = $x[dir]('.example-image');
+      if (figs.length) figs.first().remove();
+    }
+  });
+  content.find('.example-audio').remove();
+  content.find('audio').remove();
+  content.find('button[id*="_play"], button[id*="_pause"], button[id*="_playbackRate"], button[id*="_rewind"]').remove();
+  content.find('.example-body').each((_, el) => {
+    if (!((doc(el).text() || '').trim())) doc(el).remove();
+  });
+
   // ---- media
   const media = [];
   content.find('img').each((_, el) => {
