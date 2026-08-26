@@ -1,6 +1,6 @@
-# Französisch lernen — copia statica di Lingolia Français (sezione tedesca)
+# Französisch lernen — sito statico (Astro)
 
-Sito statico con le 198 pagine teoriche di Lingolia Français in lingua tedesca:
+Sito statico con 198 pagine di grammatica e vocabolario francese in lingua tedesca:
 grammatica, vocabolario (Wortschatz), calligrafia (Schreibschule) e ortografia
 (Rechtschreibung). Audio, glossari inline e traduzioni già inclusi, con ricerca
 full-text lato client (niente backend).
@@ -17,9 +17,10 @@ full-text lato client (niente backend).
 | `.work/`              | Crawl originale (sezione DE) — input della pipeline              |
 | `original/`           | Crawl della sezione IT — solo provenienza, non usato             |
 
-Le parti interattive del sito originale (Konjugator, esercizi, Hör-/
-Leseverstehen, Glossar) non sono incluse: rimangono link esterni
-all'originale su `francais.lingolia.com`.
+Il sito non contiene parti interattive (Konjugator, esercizi,
+Hör-/Leseverstehen, Glossar): le pagine si limitano a spiegazioni, esempi,
+liste e tabelle. Tutti i riferimenti e i link al sito originale sono stati
+rimossi.
 
 ## Sviluppo locale
 

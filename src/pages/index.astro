@@ -1,12 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
-
-const site = 'https://francais.lingolia.com';
-const ext = (p) => site + p;
 ---
 
 <Base>
-  <h1>Französisch lernen und üben</h1>
+  <h1>Französisch lernen</h1>
   <p class="lead">
     Grammatik, Wortschatz und Schreibstil – übersichtlich erklärt, mit Beispielsätzen und deutschen
     Übersetzungen. Ohne Werbung, ohne Schnickschnack.
@@ -66,16 +63,8 @@ const ext = (p) => site + p;
     </section>
   </div>
 
-  <section class="card">
-    <h2>Interaktiv auf der Originalseite</h2>
-    <p>
-      Konjugator und Hör-/Leseverstehen bleiben interaktiv bei Lingolia – hier verlinkt:
-    </p>
-    <ul class="quick">
-      <li><a href={ext('/de/grammatik/konjugator')} target="_blank" rel="noopener noreferrer">Konjugator</a></li>
-      <li><a href={ext('/de/hoerverstehen')} target="_blank" rel="noopener noreferrer">Hörverstehen</a></li>
-      <li><a href={ext('/de/leseverstehen')} target="_blank" rel="noopener noreferrer">Leseverstehen</a></li>
-      <li><a href={ext('/de/hilfe/glossar')} target="_blank" rel="noopener noreferrer">Glossar</a></li>
-    </ul>
-  </section>
+  <p class="lead">
+    Die Seiten sind für dich zum Schmökern sortiert – du kannst einfach links oben springen oder
+    nach einem Thema suchen. Viel Freude beim Lesen!
+  </p>
 </Base>

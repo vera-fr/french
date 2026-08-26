@@ -23,6 +23,30 @@ const PAGES_DIR = path.join(ROOT, '.work', 'de', 'pages');
 
 const SITE = 'https://francais.lingolia.com';
 
+// Absolute links to the original site / its shop / parent brand.
+// Requirement: the mirrored site must be fully self-contained -> these are
+// removed (anchor text is kept; a list item made of nothing but the link is
+// dropped together with its <li>).
+const BRAND_LINK_RE = /^https?:\/\/[^\s/$]*lingolia\.(?:com|shop)\//i;
+
+// Keep only the anchor's inner content (or delete a full list item).
+// Returns true if the anchor was handled.
+function stripBrandAnchor(doc, $el, el) {
+  const li = $el.closest('li');
+  if (li.length) {
+    let onlyChild = true;
+    li.children().each((_, c) => {
+      if (c.type === 'element' && c !== el) onlyChild = false;
+    });
+    if (onlyChild) {
+      li.remove();
+      return true;
+    }
+  }
+  $el.replaceWith($el.html() ?? '');
+  return true;
+}
+
 // Pages that are interactive exercise apps ("… – Freie Übung"), not theory content.
 const EXCLUDE = new Set([
   'grammatik/zeitformen/passe-anterieur/le-passe-anterieur-uebungen',
@@ -92,6 +116,142 @@ function sectionOf(slug) {
   return known[first] || 'Allgemein';
 }
 
+// --------------------------------------------------------------------- tone
+// Exact, whole-phrase replacements that (a) remove every "Lingolia" reference
+// and (b) soften the "teacher-to-student" phrasing ("Teste!", "Lerne!",
+// "Beachte!", "Achte darauf!", …) into friendlier sentences.
+// Applied to the serialized HTML AFTER link/media processing.
+const SOFTEN = [
+  // -- brand / "our site" self-reference -------------------------------
+  ['Auf <b>Lingolia</b> findest du', 'Hier findest du'],
+  ['Außerdem findest du auf Lingolia eine', 'Außerdem findest du hier eine'],
+  ['Lingolia-Vokabelkalender', 'Vokabelkalender'],
+  // (specific full sentence first, so it reads on top of the Vokabelkalender fix above)
+  ['Erweitere deinen französischen Wortschatz mit den Themen aus dem Vokabelkalender. Ordne die Vokabeln richtig zu, lerne die Artikel und Pluralformen. Wähle aus der Liste unten das Thema deiner Wahl, lerne die Vokabeln und teste dein Wissen in den Übungen.',
+   'Erweitere deinen Wortschatz mit neuen Themen! Wähle einfach das Thema, das dich interessiert – und lerne die Vokabeln mit Artikel und Pluralform.'],
+  ['Lerne und übe in der Lingolia-Grammatik die', 'Hier lernst und übst du die'],
+  ['alle unsere Vokabellisten', 'alle Vokabellisten'],
+  ['alle unsere Artikel', 'alle Artikel'],
+  ['alle unsere Grammatiklektionen', 'alle Grammatiklektionen'],
+  ['alle unsere Rechtschreiblektionen', 'alle Rechtschreiblektionen'],
+  ['sowie zahlreiche Übungen:', 'an einem Ort:'],
+  ['mit unseren Übungen', 'mit den Übungen'],
+  ['mit unseren Aufgaben', 'mit den Aufgaben'],
+  ['zu unseren Themen', 'zu diesen Themen'],
+  ['unseren Konjugator oder unsere Seiten', 'den Konjugator oder die Seiten'],
+  ['mit unserem Einstufungstest', 'mit einem kurzen Test'],
+  // -- placement-test invitations (the test doesn't exist here) --------
+  ['Wenn du wissen möchtest, wie gut dein Französisch schon ist, kannst du einfach einen Einstufungstest machen. So siehst du, wo du stehst und was du als Nächstes lernen kannst.',
+   'Wenn du wissen möchtest, wie gut dein Französisch schon ist, starte einfach bei A1 und arbeite dich Schritt für Schritt weiter.'],
+  ['Wenn du wissen möchtest, wie gut dein Französisch schon ist, mach einfach einen Einstufungstest. So findest du heraus, wo du stehst und was du als Nächstes lernen kannst.',
+   'Wenn du wissen möchtest, wie gut dein Französisch schon ist, starte einfach bei A1 – Schritt für Schritt steigst du weiter auf.'],
+  ['Wenn du wissen möchtest, wie gut dein Französisch schon ist, mach einfach einen Einstufungstest. So findest du heraus, wo du stehst und kannst genau dort weitermachen.',
+   'Wenn du wissen möchtest, wie gut dein Französisch schon ist, starte einfach bei A1 und arbeite dich ruhig weiter – so weißt du bald, was du schon gut kannst.'],
+  ['Zu jedem Thema gibt es Übungen in verschiedenen Niveaus (A1 bis C1), mit denen du dein Wissen festigen und Schritt für Schritt verbessern kannst.',
+   'Zu jedem Thema gibt es Erklärungen und Beispiele für verschiedene Niveaus (A1 bis C1). Schritt für Schritt kannst du dein Wissen so festigen und verbessern.'],
+  // -- friendlier phrasing ---------------------------------------------
+  ['Teste dein Wissen anschließend in den Übungen.', 'Die Beispielsätze auf dieser Seite zeigen dir, wie die Form in der Praxis steht.'],
+  ['Teste dein Wissen anschließend in den Vokabel-Übungen.', 'Am Ende der Seite kannst du das Neue noch einmal durchlesen.'],
+  ['und teste dein Wissen mit den Übungen am Ende der Seite.', 'Die Beispiele im Text zeigen dir, wie die Form in der Praxis steht.'],
+  ['Lerne hier die Bildung', 'Hier lernst du die Bildung'],
+  ['Lerne die Bildung', 'Hier lernst du die Bildung'],
+  ['Festige dein Wissen anschließend in den Übungen.', 'Anschließend kannst du das Gelernte an den Beispielen im Text festigen.'],
+  ['Besuche unsere Seite', 'Mehr dazu auf der Seite'],
+  ['und prüfe dein Wissen mit den zugehörigen Übungen.', ''],
+  ['schau dir die folgenden Seiten an:', "hier geht's weiter:"],
+  ['Schau dir die folgenden Beispiele an.', 'Hier ein paar Beispiele dazu:'],
+  ['>Beachte</h3>', '>Gut zu wissen</h3>'],
+  ['>Beachte:</h3>', '>Gut zu wissen:</h3>'],
+  ['<p>Beachte: ', '<p>Gut zu wissen: '],
+  ['<p><b>Beachte:</b>', '<p><b>Gut zu wissen:</b>'],
+  ['<strong>Beachte:</strong>', '<strong>Gut zu wissen:</strong>'],
+  ['<strong>Beachte</strong>:', '<strong>Gut zu wissen</strong>:'],
+  ['(Beachte: die Verben', '(Übrigens: die Verben'],
+  ['Beachte die schwierigen Zahlen:', 'Hier ein paar Zahlen, die einen Haken haben:'],
+  ['Beachte, dass Ortsnamen', 'Übrigens: Ortsnamen'],
+  ['Achte darauf, den zusammengesetzten Verneinungssatz', 'Gut zu wissen: den zusammengesetzten Verneinungssatz'],
+  ['Achte darauf, den Indikativ', 'Gut zu wissen: den Indikativ'],
+  ['Achte auf die Angleichung in Numerus und Genus!', 'Und wichtig: die Angleichung in Numerus und Genus!'],
+  ['und teste dein Wissen in den Übungen.', '. Die Beispielsätze zeigen dir, wie die Form in der Praxis steht.'],
+  ['Erfahre in unserer Erläuterung alles zur Verwendung und Bildung und teste dein Können in den Übungen.',
+   'Hier findest du alles zur Verwendung und Bildung der Form \u2013 inklusive Beispiels\u00e4tzen.'],
+  ['Lerne mit unserer Erläuterung die Regeln zur Verwendung und Bildung',
+   'Hier findest du die Regeln zur Verwendung und Bildung'],
+  ['Lerne hier die', 'Hier lernst du die'],
+  ['Lerne und übe in unserer Grammatik-Erläuterung mit Übungen, wie französische Adjektive gesteigert werden und welche Besonderheiten wir beachten müssen.',
+   'Hier findest du alles Wichtige dazu: wie französische Adjektive gesteigert werden und welche Besonderheiten es gibt.'],
+  ['achte darauf, alle Klammern', 'vergiss nur nicht, alle Klammern'],
+  ['Achte darauf, das Leerzeichen', 'Und denk dran, das Leerzeichen'],
+  // -- drills/conjugator promises: neutralize (static mirror: no exercises, --
+  //    no Konjugator, no interactive listening/reading — only text). Added at
+  //    the end so it runs after earlier pairs; longest match first in families.
+  ['In den Übungen kannst du dein Wissen testen und vertiefen.', 'Hier findest du Erklärungen und Beispiele, die dir helfen, es dir gut einzuprägen.'],
+  ['In den Übungen kannst du anschließend dein Wissen testen und vertiefen.', 'Die Erklärungen und Beispiele helfen dir, es dir gut einzuprägen.'],
+  ['In den Übungen kannst du dein Wissen anschließend testen.', 'Die Beispiele auf dieser Seite helfen dir, es dir gut einzuprägen.'],
+  ['In den Übungen kannst du dein Wissen Testen.', 'Die Beispiele auf dieser Seite helfen dir, es dir gut einzuprägen.'],
+  ['In den Übungen kannst du testen, wie gut du die Steigerung der französischen Adverbien beherrschst.', 'Die Beispielsätze im Text zeigen dir, wie die Steigerung in der Praxis aussieht.'],
+  ['In den Übungen kannst du testen, wie gut du den Plural beherrschst.', 'Die Beispiellisten weiter unten zeigen dir, wie der Plural aussieht.'],
+  ['In den Übungen kannst du dein Wissen zu den Ergänzungssätzen testen.', 'Die Beispiele im Text helfen dir, es dir gut einzuprägen.'],
+  ['In den Übungen kannst du dein Wissen prüfen und vertiefen.', 'Die Beispielsätze im Text zeigen dir, wie die Sätze in der Praxis aussehen.'],
+  ['In den Übungen kannst du das Gelernte wiederholen und deine Französischkenntnisse verbessern:', 'Die Listen und Beispiele auf dieser Seite helfen dir, das Gelernte gut festzuhalten:'],
+  ['In den Übungen lernst du, selbst Passivsätze in verschiedenen Zeiten zu bilden.', 'Die Beispielsätze zeigen dir, wie das Passiv in der Praxis aussieht.'],
+  ['In den Übungen kannst du dein Wissen testen.', 'Die Beispielsätze und Listen auf dieser Seite helfen dir, die Regeln gut zu verinnerlichen.'],
+  ['in den Grammatik-Übungen', 'in den Beispielsätzen auf dieser Seite'],
+  ['sowie zahlreiche Übungen am Ende der Seite, um das Gelernte anzuwenden', 'sowie viele Beispielsätze, an denen du das Gelernte gut festigen kannst'],
+  ['Außerdem findest du am Ende der Seite zahlreiche Übungen, um das Gelernte anzuwenden.', 'Außerdem findest du im Text Beispiele, an denen du das Gelernte gut festigen kannst.'],
+  ['sowie zahlreiche Übungen, die dir helfen, sie voneinander zu unterscheiden.', 'mit vielen Beispielen, die dir helfen, sie voneinander zu unterscheiden.'],
+  ['Details, Beispiele sowie zahlreiche Übungen findest du auf unserer Seite über', 'Details, Beispiele und viele Beispielsätze findest du auf unserer Seite über'],
+  ['weitere Einzelheiten sowie zahlreiche Übungen.', 'weitere Einzelheiten und viele Beispiele.'],
+  ['Ausführliche Erklärungen sowie zahlreiche Übungen findest du auf den Seiten zu den verschiedenen Arten', 'Ausführliche Erklärungen und viele Beispiele findest du auf den Seiten zu den verschiedenen Arten'],
+  ['Erklärungen, Beispiele und Übungen dazu findest du auf unserer Seite', 'Erklärungen und Beispiele dazu findest du auf unserer Seite'],
+  ['Erklärungen, Beispiele und Übungen dazu findest du in unserem Kapitel', 'Erklärungen und Beispiele dazu findest du in unserem Kapitel'],
+  ['Eine ausführliche Erklärung mit passenden Übungen findest du im Artikel zur', 'Eine ausführliche Erklärung mit vielen Beispielen findest du im Artikel zur'],
+  ['Eine ausführliche Erklärung und zahlreiche Übungen findest du auf der Seite zum Thema', 'Eine ausführliche Erklärung und viele Beispiele findest du auf der Seite zum Thema'],
+  [', und prüfe deine Kenntnisse mit den Übungen!', ' – mit Erklärungen und vielen Beispielen.'],
+  ['sowie Links zu Seiten mit zahlreichen Beispielen und Übungen.', 'sowie Links zu Seiten mit zahlreichen Beispielen.'],
+  ["erfahren und mit den Übungen zu trainieren, hier geht's weiter:", "erfahren, hier geht's weiter:"],
+  ['sowie Links zu weiteren Seiten zum Thema Adverbien mit vielen Übungen.', 'sowie Links zu weiteren Seiten zum Thema Adverbien.'],
+  ['Mit den passenden Übungen kannst du das Gelernte wiederholen und deine Französischkenntnisse verbessern.', 'Die Erklärungen und Beispiele auf diesen Seiten helfen dir, das Gelernte gut festzuhalten.'],
+  ['Dieses Kapitel schafft Klarheit durch einfache Erklärungen, anschauliche Beispiele und spannende Übungen!', 'Dieses Kapitel schafft Klarheit durch einfache Erklärungen und anschauliche Beispiele.'],
+  ['Folgende Beispiele und Übungen sorgen für mehr Klarheit.', 'Folgende Beispiele sorgen für mehr Klarheit.'],
+  ['Die unten stehenden Erläuterungen, Beispiele und Übungen machen die', 'Die unten stehenden Erläuterungen und Beispiele machen die'],
+  // -- Hör-/Leseverstehen (explanations only — nothing playable in this mirror) --
+  ['Teste dein Hörverstehen auf Französisch. Du hörst von Muttersprachlern gesprochene Texte, zu denen du Fragen beantworten sollst. Im Skript kannst du alle Texte nachlesen.', 'Beim Hörverstehen hörst du gesprochene Texte auf Französisch und beantwortest danach Fragen zum Inhalt.'],
+  ['Prüfe und verbessere dein Leseverstehen auf Französisch mit Texten aus unterschiedlichen Wortschatz-Bereichen. Lies die Texte und beantworte die Fragen zum Text oder Vokabular.', 'Beim Leseverstehen liest du Texte auf Französisch und beantwortest anschließend Fragen zum Inhalt oder zum Wortschatz.'],
+  // -- Konjugator promises (there is no interactive conjugator in this mirror) --
+  ['Wenn du eine französische Zeitform intensiver lernen willst, gelangst du über den Link zu einer ausführlichen Erläuterung mit Übungen.', 'Wenn du eine französische Zeitform intensiver lernen willst, findest du über den Link eine ausführliche Erläuterung dazu.'],
+  [' und einen Konjugator, in dem du dir 7000 französische Verben in allen Zeitformen konjugiert anzeigen lassen kannst.', '.'],
+  ['Wenn du es etwas bequemer magst, kannst du dir in unserem Konjugator auch französische Verben konjugieren lassen.', ''],
+  ['Um die Konjugation eines spezifischen Verbs zu überprüfen, kannst du unseren Verben Konjugator verwenden.', 'Die Tabelle auf dieser Seite zeigt dir alle Formen im Überblick.'],
+  ['kannst du den Konjugator oder die', 'kannst du einfach die'],
+  // -- brand slip (accented Lingolía) --
+  ['Deshalb haben wir auf Lingolía verschiedene Redewendung mit Erklärung, Beispielsatz und Übungen zusammengestellt, die dir helfen, französische Redewendungen richtig zu verstehen und anzuwenden.', 'Deshalb findest du hier zahlreiche Redewendungen – jede mit Erklärung und Beispielsatz – die dir helfen, sie richtig zu verstehen und anzuwenden.'],
+  // -- "Weitere Übungen zum Thema" section headings (they list related pages, not drills) --
+
+  ['In diesem Bereich kannst du Hörverstehen und Leseverstehen auf Französisch üben. Hör- und Leseverstehen sind wichtige Bestandteile der Französischprüfungen.', 'Hörverstehen und Leseverstehen sind wichtige Bestandteile der Französischprüfungen.'],
+  ['Weitere Übungen zum Thema in anderen Bereichen', 'Mehr zum Thema'],
+
+  ['und kannst das Gelernte durch passende Übungen überprüfen.', 'und lernst an vielen Beispielen, wie sie im Satz stehen.'],
+  ['mit zahlreichen Übungen, um dein Wissen zu überprüfen.', 'mit vielen Beispielen.'],
+  ['um ihre Anwendung zu verstehen und überprüfe dein Wissen mit den Übungen.', 'um ihre Anwendung zu verstehen – mit Erklärungen und Beispielen.'],
+  ['In den Übungen kannst du anschließend prüfen, ob du alles verstanden hast.', 'Danach lernst du an vielen Beispielen, wie alles im Satz steht.'],
+  ['mit einem kurzen Test überprüfen.', 'an den Beispielen auf unseren Grammatik- und Wortschatz-Seiten festmachen.'],
+  ['Jede Seite enthält <b>zahlreiche Übungen</b>, um dein Wissen gleich zu überprüfen!', 'Jede Seite enthält <b>viele Redewendungen</b>, jeweils mit Erklärung und Beispielsatz.'],
+];
+
+const SOFT_STATS = new Map(); // phrase -> total matches across the run
+function softenHtml(html) {
+  let out = html;
+  for (const [from, to] of SOFTEN) {
+    const n = out.split(from).length - 1;
+    if (n > 0) {
+      out = out.split(from).join(to);
+      SOFT_STATS.set(from, (SOFT_STATS.get(from) || 0) + n);
+    }
+  }
+  return out;
+}
+
 async function transformPage({ slug, file }) {
   const html = fs.readFileSync(file, 'utf8');
   const doc = load(html);
@@ -110,8 +270,21 @@ async function transformPage({ slug, file }) {
     // exercise app / promo blocks that sit INSIDE the article text
     'form.exercise_form', '#exercise-settings',
     'nav#exercise-list', 'nav.exercises-article-list', '.ce_plusExerciseList',
+    // commercial "plus membership" ad boxes
+    '.adv-shop',
   ].join(', ');
   content.find(kill).remove();
+
+  // Teaser blocks that link ONLY to the original site (e.g. Hör-/Leseverstehen
+  // cards) — the whole teaser is a dangling invitation, drop it entirely.
+  content.find('.ce_teaser_link').each((_, el) => {
+    const links = doc(el).find('a[href]');
+    if (!links.length) return;
+    const allBrand = links.get().every(
+      (a) => BRAND_LINK_RE.test(doc(a).attr('href') || '')
+    );
+    if (allBrand) doc(el).remove();
+  });
 
   // Safety net: any element still carrying alpine STATE (x-data) is interactive
   // UI we cannot render statically — drop the element itself, keep its siblings.
@@ -123,6 +296,30 @@ async function transformPage({ slug, file }) {
     doc(el).remove();
   });
   if (alpineLeftover.length) console.warn(`  alpine x-data leftovers removed: ${alpineLeftover.join(', ')}`);
+
+  // Wortschatz pages: "Text zum Leseverstehen/Hörverstehen" heads a list of
+  // links to the (non-existent) listening/reading-comprehension pages →
+  // drop heading, list and the matching TOC <li>.
+  content.find('h3[id^="a-text-zum-leseverstehen"], h3[id^="a-text-zum-hoerverstehen"]').each((_, el) => {
+    const h3 = doc(el);
+    const id = h3.attr('id');
+    const ul = h3.nextUntil('h2, h3').filter('ul').first();
+    h3.remove();
+    if (ul.length) doc(ul).remove();
+    content.find(`a[href="#${id}"]`).closest('li').remove();
+  });
+  // "Weitere Übungen zum Thema …" heading (wortschatz pages): once the dead
+  // list above is gone, drop the heading too — with its whole block if it is
+  // now link-free — plus the TOC <li>.
+  content.find('h2[id^="a-weitere-uebungen-zum-thema-in"]').each((_, el) => {
+    const h2 = doc(el);
+    const id = h2.attr('id');
+    const b = h2.closest('section.ce_text, .ce_text');
+    if (b.length && b.find('a').length === 0) {
+      b.remove();
+      content.find(`a[href="#${id}"]`).closest('li').remove();
+    }
+  });
 
   // ---- tooltips: inline the German translation, drop the icon
   // word tooltips: <span class="tooltip tooltip-word">mot<i/><span class="tooltip-content">Übers.</span></span>
@@ -204,7 +401,10 @@ async function transformPage({ slug, file }) {
     // Normalize to a root-absolute path
     if (href.startsWith(SITE + '/')) href = href.slice(SITE.length);
     else if (href.startsWith(SITE)) return; // site root itself, not an article
-    if (href.startsWith('http://') || href.startsWith('https://')) return; // other external
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+      if (BRAND_LINK_RE.test(href)) { stripBrandAnchor(doc, $el, el); return; }
+      return; // keep every other external link (museum, wikipedia, …)
+    }
 
     // Image/media asset link → download and point locally
     const am = href.match(/^(?:assets\/images\/|\/assets\/images\/)(.+)$/) || href.match(/^(?:files\/images\/|\/files\/images\/)(.+)$/);
@@ -242,32 +442,35 @@ async function transformPage({ slug, file }) {
     if (slugSet.has(clean)) {
       $el.attr('href', '/' + clean + '/' + (frag ? '#' + frag : ''));
     } else {
-      // Excluded area (Übungen, Konjugator, Hilfe, …) → live site
-      $el.attr('href', `${SITE}/de/${clean}` + (frag ? '#' + frag : ''));
-      $el.attr('target', '_blank');
-      $el.attr('rel', 'noopener');
+      // Page not part of the mirror (exercises, Konjugator, Einstufungstest, …)
+      // → keep only the linked text; a list item made of nothing but this link
+      // is dropped together with its <li>.
+      stripBrandAnchor(doc, $el, el);
     }
-  });
-
-  // ---- anchors for TOC (h2/h3 with ids) and anchor-link target fixes
-  const toc = [];
-  content.find('h2[id], h3[id]').each((_, el) => {
-    const id = doc(el).attr('id');
-    const text = doc(el).text().trim();
-    if (!id || !text) return;
-    if (toc.length < 12) toc.push({ text, anchor: id });
   });
 
   stripAttrs(doc);
   // drop attribute-less empty wrapper classes? keep, CSS ignores.
-  const body = content.length ? content.first().html() || '' : '';
+  let body = content.length ? content.first().html() || '' : '';
+  body = softenHtml(body); // tone + brand cleanup (exact phrases)
+
+  // ---- TOC headings — extracted AFTER softening so the texts shown in the
+  // page's meta/search match the headings the visitor actually sees.
+  const toc = [];
+  for (const m of body.matchAll(/<h([23]) id="([^"]+)"[^>]*>(.*?)<\/h\1>/gs)) {
+    const text = m[3].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+    if (toc.length < 12) toc.push({ text, anchor: m[2] });
+  }
 
   // ---- description + search text
   let desc = (doc('meta[name="description"]').attr('content') || '').trim();
   if (desc) {
     try { desc = decodeURIComponent(desc); } catch { /* keep */ }
   }
-  let searchText = content.text().replace(/\s+/g, ' ').trim();
+  if (desc) desc = softenHtml(desc).replace(/<[^>]+>/g, '');
+  // NOTE: pull search text from the SOFTENED body (not the raw DOM), so the
+  // client-side search index carries the same cleaned text as the rendered pages.
+  let searchText = load(body).root().text().replace(/\s+/g, ' ').trim();
   if (!desc) {
     const firstP = body.match(/<p[^>]*>([\s\S]*?)<\/p>/);
     if (firstP) desc = firstP[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 160);
@@ -312,6 +515,17 @@ for (const pg of slugs) {
   }
 }
 console.log(`transformed: ${results.length}, failed: ${failed}`);
+
+// ----- report tone/brand replacements (flag anything that never matched)
+const softApplied = [...SOFT_STATS.entries()].sort((a, b) => b[1] - a[1]);
+const softAppliedTotal = softApplied.reduce((s, [, n]) => s + n, 0);
+console.log(`tone/brand replacements: ${softAppliedTotal}`);
+for (const [phrase, n] of softApplied) console.log(`  ${n}×  ${phrase.slice(0, 70)}`);
+const missed = SOFTEN.filter(([from]) => !SOFT_STATS.has(from)).map(([f]) => f);
+if (missed.length) {
+  console.warn(`WARN  ${missed.length} phrase(s) never matched:`);
+  for (const f of missed) console.warn(`  - ${f.slice(0, 80)}`);
+}
 
 // ----- media download
 const uniq = [...new Map(results.flatMap((r) => r.media).map((m) => [m.local, m])).values()];

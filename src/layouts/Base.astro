@@ -14,7 +14,6 @@ const {
 } = Astro.props;
 
 const pageTitle = title || 'Französisch lernen – Grammatik, Wortschatz, Schreibschule';
-const site = 'https://francais.lingolia.com';
 
 const nav = [
   { key: '', href: '/', label: 'Start' },
@@ -64,11 +63,7 @@ const nav = [
     </main>
 
     <footer class="site-footer">
-      <p>
-        Inhalte aus <a href={site + '/de/'} target="_blank" rel="noopener noreferrer">Lingolia Français</a>
-        (francais.lingolia.com), hier als statische Lernseiten gespiegelt. Interaktive Übungen, der
-        Konjugator und die Testbereiche stehen auf der Originalseite bereit.
-      </p>
+      <p>Viel Erfolg beim Französisch lernen – und ganz viel Spaß dabei!</p>
     </footer>
   </body>
 </html>
