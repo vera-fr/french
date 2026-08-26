@@ -327,11 +327,8 @@ async function transformPage({ slug, file }) {
     const $el = doc(el);
     const trans = ($el.find('.tooltip-content').first().text() || '').replace(/\s+/g, ' ').trim();
     $el.find('.tooltip-content').remove();
-    $el.find('i').remove();
-    const word = $el.text().trim();
-    const text = trans ? `${word} (${trans})` : word;
-    const t = doc.text(text);
-    $el.replaceWith(t);
+    const word = ($el.text() || '').replace(/\s+/g, ' ').trim();
+    $el.replaceWith(word ? (trans ? `${word} (${trans})` : word) : trans);
   });
   // sentence tooltips: <span class="tooltip tooltip-fa"><i/><span class="tooltip-content">…</span></span>
   // NOTE: parent() must be captured BEFORE remove() — after detachment it returns empty.
